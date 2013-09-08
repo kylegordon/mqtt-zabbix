@@ -1,0 +1,26 @@
+SUMMARY
+=======
+
+A small daemon to listen for particular MQTT messages, and relay them to a Zabbix server
+
+INSTALL
+=======
+
+sudo apt-get install python-mosquitto git
+sudo pip install pyzabbix
+
+mkdir /etc/mqtt-zabbix/
+git clone git://github.com/kylegordon/mqtt-zabbix.git /usr/local/mqtt-zabbix/
+cp /usr/local/mqtt-zabbix/mqtt-zabbix.cfg.example /etc/mqtt-zabbix/mqtt-zabbix.cfg
+cp /usr/local/mqtt-zabbix/mqtt-zabbix.init /etc/init.d/mqtt-zabbix
+update-rc.d mqtt-zabbix defaults
+cp /usr/local/mqtt-zabbix/mqtt-zabbix.default /etc/default/mqtt-zabbix
+## Edit /etc/default/mqtt-zabbix and /etc/mqtt-zabbix/mqtt-zabbix.cfg to suit
+/etc/init.d/mqtt-zabbix start
+
+CONFIGURE
+=========
+
+Configuration is stored in /etc/mqtt-zabbix/mqtt-zabbix.cfg
+
+Message topics are mapped to Zabbix items
