@@ -18,7 +18,9 @@ cp /usr/local/mqtt-zabbix/mqtt-zabbix.cfg.example /etc/mqtt-zabbix/mqtt-zabbix.c
 cp /usr/local/mqtt-zabbix/mqtt-zabbix.init /etc/init.d/mqtt-zabbix
 update-rc.d mqtt-zabbix defaults
 cp /usr/local/mqtt-zabbix/mqtt-zabbix.default /etc/default/mqtt-zabbix
-## Edit /etc/default/mqtt-zabbix and /etc/mqtt-zabbix/mqtt-zabbix.cfg to suit
+## Edit /etc/default/mqtt-zabbix, /etc/mqtt-zabbix/mqtt-zabbix.cfg to suit
+cp /usr/local/mqtt-zabbix/keys.csv.example /etc/mqtt-zabbix/keys.csv
+## Edit /etc/mqtt-zabbix/keys.csv to suit. Be sure to avoid spaces, and keep it as one key per topic
 /etc/init.d/mqtt-zabbix start
 
 CONFIGURE
