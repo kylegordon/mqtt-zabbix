@@ -1,0 +1,4 @@
+/bishopbriggs/gordonhouse/electricity/watts,mqtt.house.watts
+/bishopbriggs/gordonhouse/kitchen/temperature,mqtt.kitchen.temperature
+/bishopbriggs/gordonhouse/kitchen/freezer/temperature,mqtt.freezer.temperature
+/bishopbriggs/gordonhouse/kitchen/fridge/temperature,mqtt.fridge.temperature
