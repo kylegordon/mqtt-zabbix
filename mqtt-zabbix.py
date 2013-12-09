@@ -30,8 +30,6 @@ MQTT_HOST = config.get("global", "mqtt_host")
 MQTT_PORT = config.getint("global", "mqtt_port")
 MQTT_TOPIC = config.get("global", "mqtt_topic")
 
-POLLINTERVAL = config.getint("global", "pollinterval")
-
 KEYFILE = config.get("global", "keyfile")
 KEYHOST = config.get("global", "keyhost")
 ZBXSERVER = config.get("global", "zabbix_server")
