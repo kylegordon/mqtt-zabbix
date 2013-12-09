@@ -1,11 +1,10 @@
 [global]
 DEBUG = True
 LOGFILE = /var/log/mqtt-zabbix.log
-MQTT_HOST = 10.8.0.1
+MQTT_HOST = mqtt.example.com
 MQTT_PORT = 1883
 MQTT_TOPIC = /#
-POLLINTERVAL = 60
 KEYFILE = /etc/mqtt-zabbix/keys.csv
 KEYHOST = house
-ZABBIX_SERVER = mqtt.example.com
+ZABBIX_SERVER = zabbix.example.com
 ZABBIX_PORT = 10051
