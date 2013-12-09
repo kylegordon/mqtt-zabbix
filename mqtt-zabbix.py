@@ -138,9 +138,6 @@ def main_loop():
     """
     while mqttc.loop() == 0:
 	logging.debug("Looping")
-	item = 0
-
-	time.sleep(POLLINTERVAL)
     
 # Use the signal module to handle signals
 signal.signal(signal.SIGTERM, cleanup)
