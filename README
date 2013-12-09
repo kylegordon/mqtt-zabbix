@@ -7,7 +7,10 @@ INSTALL
 =======
 
 sudo apt-get install python-mosquitto git
-sudo pip install pyzabbix
+#sudo pip install pyzabbix
+git clone https://github.com/lukecyca/pyzabbix /tmp/pyzabbix
+cd /tmp/pyzabbix/
+sudo python setup.py install
 
 mkdir /etc/mqtt-zabbix/
 git clone git://github.com/kylegordon/mqtt-zabbix.git /usr/local/mqtt-zabbix/
