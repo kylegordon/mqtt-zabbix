@@ -14,7 +14,6 @@ import csv
 
 import mosquitto
 import ConfigParser
-import pyzabbix
 
 from datetime import datetime, timedelta
 

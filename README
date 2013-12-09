@@ -6,11 +6,11 @@ A small daemon to listen for particular MQTT messages, and relay them to a Zabbi
 INSTALL
 =======
 
-sudo apt-get install python-mosquitto git python-pip
-sudo pip install pyzabbix
+sudo apt-get install python-mosquitto git python-pip python-simplejson
+sudo pip install zbxsend
 # Alternatively this...
-#git clone https://github.com/lukecyca/pyzabbix /tmp/pyzabbix
-#cd /tmp/pyzabbix/
+#git clone https://github.com/pistolero/zbxsend /tmp/zbxsend
+#cd /tmp/zbxsend
 #sudo python setup.py install
 
 mkdir /etc/mqtt-zabbix/
