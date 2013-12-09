@@ -29,8 +29,6 @@ DEBUG = config.getboolean("global", "debug")
 LOGFILE = config.get("global", "logfile")
 MQTT_HOST = config.get("global", "mqtt_host")
 MQTT_PORT = config.getint("global", "mqtt_port")
-#MQTT_SUBTOPIC = config.get("global", "MQTT_SUBTOPIC")
-#MQTT_TOPIC = "/raw/" + socket.getfqdn() + MQTT_SUBTOPIC
 MQTT_TOPIC = config.get("global", "mqtt_topic")
 
 POLLINTERVAL = config.getint("global", "pollinterval")
@@ -127,12 +125,7 @@ def on_message(msg):
     logging.debug("Received: " + msg.topic)
     if msg.topic in KeyMap.mapdict:
         logging.info("Sending %s %s to Zabbix key %s", msg.topic, msg.payload, KeyMap.mapdict[msg.topic])
-        ## Found an item. Replace it with one from the dictionary
-        ## mqttc.publish(KeyMap.mapdict[msg.topic], msg.payload)
-        ## send_to_zabbix([Metric('localhost', 'bucks_earned', 99999)], 'localhost', 10051)
-	## FIXME
 	## Zabbix can also accept text and character data... should we sanitize input or just accept it as is?
-	## 
         send_to_zabbix([Metric(KEYHOST, KeyMap.mapdict[msg.topic], msg.payload)], ZBXSERVER, ZBXPORT)
     else:
         # Received something with a /raw/ topic, but it didn't match. We don't really care about them
