@@ -51,7 +51,7 @@ else:
                         level=logging.INFO,
                         format=LOGFORMAT)
 
-logging.info("Starting mqtt-zabbix")
+logging.info("Starting " + APPNAME)
 logging.info("INFO MODE")
 logging.debug("DEBUG MODE")
 
