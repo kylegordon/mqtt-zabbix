@@ -66,7 +66,7 @@ def on_unsubscribe(mosq, obj, mid):
     """
     What to do in the event of unsubscribing from a topic
     """
-    print("Unsubscribe with mid " + str(mid) + " received.")
+    logging.debug("Unsubscribe with mid " + str(mid) + " received.")
 
 def on_connect(mosq, obj, result_code):
     """
@@ -80,11 +80,10 @@ def on_connect(mosq, obj, result_code):
     3: Refused – server unavailable
     4: Refused – bad user name or password (MQTT v3.1 broker only)
     5: Refused – not authorised (MQTT v3.1 broker only)
-    ## FIXME - needs fleshing out http://mosquitto.org/documentation/python/
     """
     logging.debug("on_connect RC: " + str(result_code))
     if result_code == 0:
-        logging.info("Connected to broker")
+        logging.info("Connected to %s:%s", MQTT_HOST, MQTT_PORT)
         ## FIXME - publish RETAINED LWT as per http://stackoverflow.com/questions/19057835/how-to-find-connected-mqtt-client-details
         mqttc.publish("/status/" + socket.getfqdn(), "Online")
         process_connection()
@@ -186,9 +185,6 @@ def connect():
     if DEBUG:
         mqttc.on_log = on_log
 
-    #logging.debug("Subscribing to %s", MQTT_TOPIC)
-    #mqttc.subscribe(MQTT_TOPIC, 2)
-
 class KeyMap:
     """
     Read the topics and keys into a dictionary for internal lookups
@@ -209,6 +205,6 @@ connect()
 try:
     mqttc.loop_forever()
 except KeyboardInterrupt:
-    print "Interrupted."
+    logging.info("Interrupted by keypress")
     sys.exit(0)
 
