@@ -36,26 +36,34 @@ ZBXSERVER = config.get("global", "zabbix_server")
 ZBXPORT = config.getint("global", "zabbix_port")
 
 APPNAME = "mqtt-zabbix"
+PRESENCETOPIC = "clients/" + socket.getfqdn() + "/" + APPNAME + "/state"
 client_id = APPNAME + "_%d" % os.getpid()
 mqttc = mosquitto.Mosquitto(client_id)
 
 LOGFORMAT = "%(asctime)-15s %(message)s"
 
 if DEBUG:
-    logging.basicConfig(filename=LOGFILE, level=logging.DEBUG, format=LOGFORMAT)
+    logging.basicConfig(filename=LOGFILE,
+                        level=logging.DEBUG,
+                        format=LOGFORMAT)
 else:
-    logging.basicConfig(filename=LOGFILE, level=logging.INFO, format=LOGFORMAT)
+    logging.basicConfig(filename=LOGFILE,
+                        level=logging.INFO,
+                        format=LOGFORMAT)
 
 logging.info("Starting mqtt-zabbix")
 logging.info("INFO MODE")
 logging.debug("DEBUG MODE")
 
-## All the MQTT callbacks
+# All the MQTT callbacks start here
+
+
 def on_publish(mosq, obj, mid):
     """
     What to do when a message is published
     """
     logging.debug("MID " + str(mid) + " published.")
+
 
 def on_subscribe(mosq, obj, mid, qos_list):
     """
@@ -63,16 +71,19 @@ def on_subscribe(mosq, obj, mid, qos_list):
     """
     logging.debug("Subscribe with mid " + str(mid) + " received.")
 
+
 def on_unsubscribe(mosq, obj, mid):
     """
     What to do in the event of unsubscribing from a topic
     """
     logging.debug("Unsubscribe with mid " + str(mid) + " received.")
 
+
 def on_connect(mosq, obj, result_code):
     """
     Handle connections (or failures) to the broker.
-    This is called after the client has received a CONNACK message from the broker in response to calling connect().
+    This is called after the client has received a CONNACK message
+    from the broker in response to calling connect().
     The parameter rc is an integer giving the return code:
 
     0: Success
@@ -85,9 +96,10 @@ def on_connect(mosq, obj, result_code):
     logging.debug("on_connect RC: " + str(result_code))
     if result_code == 0:
         logging.info("Connected to %s:%s", MQTT_HOST, MQTT_PORT)
-        # Publish retained LWT as per http://stackoverflow.com/questions/19057835/how-to-find-connected-mqtt-client-details
-		  # See also will_set function as below
-        mqttc.publish("clients/" + socket.getfqdn() + "/" + APPNAME + "/state", "1", retain=True)
+        # Publish retained LWT as per
+        # http://stackoverflow.com/q/97694
+        # See also the will_set function in connect() below
+        mqttc.publish(PRESENCETOPIC, "1", retain=True)
         process_connection()
     elif result_code == 1:
         logging.info("Connection refused - unacceptable protocol version")
@@ -109,23 +121,28 @@ def on_connect(mosq, obj, result_code):
         logging.warning("Something went wrong. RC:" + str(result_code))
         cleanup()
 
+
 def on_disconnect(mosq, obj, result_code):
-     """
-     Handle disconnections from the broker
-     """
-     if result_code == 0:
+    """
+    Handle disconnections from the broker
+    """
+    if result_code == 0:
         logging.info("Clean disconnection")
-     else:
+    else:
         logging.info("Unexpected disconnection! Reconnecting in 5 seconds")
         logging.debug("Result code: %s", result_code)
         time.sleep(5)
+
 
 def on_message(mosq, obj, msg):
     """
     What to do when the client recieves a message from the broker
     """
-    logging.debug("Received: " + msg.payload + " received on topic " + msg.topic + " with QoS " + str(msg.qos))
+    logging.debug("Received: " + msg.payload +
+                  " received on topic " + msg.topic +
+                  " with QoS " + str(msg.qos))
     process_message(msg)
+
 
 def on_log(mosq, obj, level, string):
     """
@@ -133,46 +150,65 @@ def on_log(mosq, obj, level, string):
     """
     logging.debug(string)
 
-## End of MQTT callbacks
+# End of MQTT callbacks
+
 
 def process_connection():
-	 logging.debug("Subscribing to %s", MQTT_TOPIC)
-	 mqttc.subscribe(MQTT_TOPIC, 2)
+    """
+    What to do when a new connection is established
+    """
+    logging.debug("Subscribing to %s", MQTT_TOPIC)
+    mqttc.subscribe(MQTT_TOPIC, 2)
+
 
 def process_message(msg):
     """
     What to do with the message that's arrived.
-    Looks up the topic in the KeyMap dictionary, and forwards the message onto Zabbix using the associated Zabbix key
+    Looks up the topic in the KeyMap dictionary, and forwards
+    the message onto Zabbix using the associated Zabbix key
     """
     logging.debug("Processing : " + msg.topic)
     if msg.topic in KeyMap.mapdict:
-        logging.info("Sending %s %s to Zabbix key %s", msg.topic, msg.payload, KeyMap.mapdict[msg.topic])
-        ## Zabbix can also accept text and character data... should we sanitize input or just accept it as is?
-        send_to_zabbix([Metric(KEYHOST, KeyMap.mapdict[msg.topic], msg.payload)], ZBXSERVER, ZBXPORT)
+        logging.info("Sending %s %s to Zabbix key %s",
+                      msg.topic,
+                      msg.payload,
+                      KeyMap.mapdict[msg.topic])
+        # Zabbix can also accept text and character data...
+        # should we sanitize input or just accept it as is?
+        send_to_zabbix([Metric(KEYHOST,
+                        KeyMap.mapdict[msg.topic],
+                        msg.payload)],
+                        ZBXSERVER,
+                        ZBXPORT)
     else:
-        # Received something with a /raw/ topic, but it didn't match. We don't really care about them
+        # Received something with a /raw/ topic,
+        # but it didn't match anything. Log it, and discard it
         logging.debug("Unknown: %s", msg.topic)
 
+
 def cleanup(signum, frame):
-     """
-     Signal handler to ensure we disconnect cleanly 
-     in the event of a SIGTERM or SIGINT.
-     """
-     logging.info("Disconnecting from broker")
-	  # Publish a retained message to state that this client is offline
-     mqttc.publish("clients/" + socket.getfqdn() + "/" + APPNAME + "/state", "0", retain=True)
-     mqttc.disconnect()
-     logging.info("Exiting on signal %d", signum)
-     sys.exit(signum)
+    """
+    Signal handler to ensure we disconnect cleanly
+    in the event of a SIGTERM or SIGINT.
+    """
+    logging.info("Disconnecting from broker")
+    # Publish a retained message to state that this client is offline
+    mqttc.publish(PRESENCETOPIC, "0", retain=True)
+    mqttc.disconnect()
+    logging.info("Exiting on signal %d", signum)
+    sys.exit(signum)
+
 
 def connect():
     """
     Connect to the broker, define the callbacks, and subscribe
+    This will also set the Last Will and Testament (LWT)
+    The LWT will be published in the event of an unclean or
+    unexpected disconnection.
     """
     logging.debug("Connecting to %s:%s", MQTT_HOST, MQTT_PORT)
-	 # Set the Last Will and Testament (LWT) *before* connecting
-	 # The LWT will get published in the event of an unclean or unexpected disconnection
-    mqttc.will_set("clients/" + socket.getfqdn() + "/" + APPNAME + "/state", "0", qos=0, retain=True)
+    # Set the Last Will and Testament (LWT) *before* connecting
+    mqttc.will_set(PRESENCETOPIC, "0", qos=0, retain=True)
     result = mqttc.connect(MQTT_HOST, MQTT_PORT, 60, True)
     if result != 0:
         logging.info("Connection failed with error code %s. Retrying", result)
@@ -189,6 +225,7 @@ def connect():
     if DEBUG:
         mqttc.on_log = on_log
 
+
 class KeyMap:
     """
     Read the topics and keys into a dictionary for internal lookups
@@ -196,7 +233,7 @@ class KeyMap:
     logging.debug("Loading map")
     with open(KEYFILE, mode="r") as inputfile:
         reader = csv.reader(inputfile)
-        mapdict = dict((rows[0],rows[1]) for rows in reader)
+        mapdict = dict((rows[0], rows[1]) for rows in reader)
 
 # Use the signal module to handle signals
 signal.signal(signal.SIGTERM, cleanup)
@@ -211,4 +248,3 @@ try:
 except KeyboardInterrupt:
     logging.info("Interrupted by keypress")
     sys.exit(0)
-
