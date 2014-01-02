@@ -35,7 +35,8 @@ KEYHOST = config.get("global", "keyhost")
 ZBXSERVER = config.get("global", "zabbix_server")
 ZBXPORT = config.getint("global", "zabbix_port")
 
-client_id = "zabbix_%d" % os.getpid()
+APPNAME = "mqtt-zabbix"
+client_id = APPNAME + "_%d" % os.getpid()
 mqttc = mosquitto.Mosquitto(client_id)
 
 LOGFORMAT = "%(asctime)-15s %(message)s"
@@ -84,15 +85,16 @@ def on_connect(mosq, obj, result_code):
     logging.debug("on_connect RC: " + str(result_code))
     if result_code == 0:
         logging.info("Connected to %s:%s", MQTT_HOST, MQTT_PORT)
-        ## FIXME - publish RETAINED LWT as per http://stackoverflow.com/questions/19057835/how-to-find-connected-mqtt-client-details
-        mqttc.publish("/status/" + socket.getfqdn(), "Online")
+        # Publish retained LWT as per http://stackoverflow.com/questions/19057835/how-to-find-connected-mqtt-client-details
+		  # See also will_set function as below
+        mqttc.publish("clients/" + socket.getfqdn() + "/" + APPNAME + "/state", "1", retain=True)
         process_connection()
     elif result_code == 1:
         logging.info("Connection refused - unacceptable protocol version")
-		  cleanup()
+        cleanup()
     elif result_code == 2:
-	     logging.info("Connection refused - identifier rejected")
-		  cleanup()
+        logging.info("Connection refused - identifier rejected")
+        cleanup()
     elif result_code == 3:
         logging.info("Connection refused - server unavailable")
         logging.info("Retrying in 30 seconds")
@@ -157,9 +159,8 @@ def cleanup(signum, frame):
      in the event of a SIGTERM or SIGINT.
      """
      logging.info("Disconnecting from broker")
-     # FIXME - This status topic is too far up the hierarchy.
-     # And should be handled by the retained LWT
-     mqttc.publish("/status/" + socket.getfqdn(), "Offline")
+	  # Publish a retained message to state that this client is offline
+     mqttc.publish("clients/" + socket.getfqdn() + "/" + APPNAME + "/state", "0", retain=True)
      mqttc.disconnect()
      logging.info("Exiting on signal %d", signum)
      sys.exit(signum)
@@ -169,13 +170,16 @@ def connect():
     Connect to the broker, define the callbacks, and subscribe
     """
     logging.debug("Connecting to %s:%s", MQTT_HOST, MQTT_PORT)
+	 # Set the Last Will and Testament (LWT) *before* connecting
+	 # The LWT will get published in the event of an unclean or unexpected disconnection
+    mqttc.will_set("clients/" + socket.getfqdn() + "/" + APPNAME + "/state", "0", qos=0, retain=True)
     result = mqttc.connect(MQTT_HOST, MQTT_PORT, 60, True)
     if result != 0:
         logging.info("Connection failed with error code %s. Retrying", result)
         time.sleep(10)
         connect()
 
-    #define the callbacks
+    # Define the callbacks
     mqttc.on_connect = on_connect
     mqttc.on_disconnect = on_disconnect
     mqttc.on_publish = on_publish
