@@ -49,6 +49,109 @@ logging.info("Starting mqtt-zabbix")
 logging.info("INFO MODE")
 logging.debug("DEBUG MODE")
 
+## All the MQTT callbacks
+def on_publish(mosq, obj, mid):
+    """
+    What to do when a message is published
+    """
+    logging.debug("MID " + str(mid) + " published.")
+
+def on_subscribe(mosq, obj, mid, qos_list):
+    """
+    What to do in the event of subscribing to a topic"
+    """
+    logging.debug("Subscribe with mid " + str(mid) + " received.")
+
+def on_unsubscribe(mosq, obj, mid):
+    """
+    What to do in the event of unsubscribing from a topic
+    """
+    print("Unsubscribe with mid " + str(mid) + " received.")
+
+def on_connect(mosq, obj, result_code):
+    """
+    Handle connections (or failures) to the broker.
+    This is called after the client has received a CONNACK message from the broker in response to calling connect().
+    The parameter rc is an integer giving the return code:
+
+    0: Success
+    1: Refused – unacceptable protocol version
+    2: Refused – identifier rejected
+    3: Refused – server unavailable
+    4: Refused – bad user name or password (MQTT v3.1 broker only)
+    5: Refused – not authorised (MQTT v3.1 broker only)
+    ## FIXME - needs fleshing out http://mosquitto.org/documentation/python/
+    """
+    logging.debug("on_connect RC: " + str(result_code))
+    if result_code == 0:
+        logging.info("Connected to broker")
+        ## FIXME - publish RETAINED LWT as per http://stackoverflow.com/questions/19057835/how-to-find-connected-mqtt-client-details
+        mqttc.publish("/status/" + socket.getfqdn(), "Online")
+        process_connection()
+    elif result_code == 1:
+        logging.info("Connection refused - unacceptable protocol version")
+		  cleanup()
+    elif result_code == 2:
+	     logging.info("Connection refused - identifier rejected")
+		  cleanup()
+    elif result_code == 3:
+        logging.info("Connection refused - server unavailable")
+        logging.info("Retrying in 30 seconds")
+        time.sleep(30)
+    elif result_code == 4:
+        logging.info("Connection refused - bad user name or password")
+        cleanup()
+    elif result_code == 5:
+        logging.info("Connection refused - not authorised")
+        cleanup()
+    else:
+        logging.warning("Something went wrong. RC:" + str(result_code))
+        cleanup()
+
+def on_disconnect(mosq, obj, result_code):
+     """
+     Handle disconnections from the broker
+     """
+     if result_code == 0:
+        logging.info("Clean disconnection")
+     else:
+        logging.info("Unexpected disconnection! Reconnecting in 5 seconds")
+        logging.debug("Result code: %s", result_code)
+        time.sleep(5)
+
+def on_message(mosq, obj, msg):
+    """
+    What to do when the client recieves a message from the broker
+    """
+    logging.debug("Received: " + msg.payload + " received on topic " + msg.topic + " with QoS " + str(msg.qos))
+    process_message(msg)
+
+def on_log(mosq, obj, level, string):
+    """
+    What to do with debug log output from the MQTT library
+    """
+    logging.debug(string)
+
+## End of MQTT callbacks
+
+def process_connection():
+	 logging.debug("Subscribing to %s", MQTT_TOPIC)
+	 mqttc.subscribe(MQTT_TOPIC, 2)
+
+def process_message(msg):
+    """
+    What to do with the message that's arrived.
+    Looks up the topic in the KeyMap dictionary, and forwards the message onto Zabbix using the associated Zabbix key
+    """
+    logging.debug("Processing : " + msg.topic)
+    if msg.topic in KeyMap.mapdict:
+        logging.info("Sending %s %s to Zabbix key %s", msg.topic, msg.payload, KeyMap.mapdict[msg.topic])
+        ## Zabbix can also accept text and character data... should we sanitize input or just accept it as is?
+        send_to_zabbix([Metric(KEYHOST, KeyMap.mapdict[msg.topic], msg.payload)], ZBXSERVER, ZBXPORT)
+    else:
+        # Received something with a /raw/ topic, but it didn't match. We don't really care about them
+        logging.debug("Unknown: %s", msg.topic)
+
 def cleanup(signum, frame):
      """
      Signal handler to ensure we disconnect cleanly 
@@ -56,6 +159,7 @@ def cleanup(signum, frame):
      """
      logging.info("Disconnecting from broker")
      # FIXME - This status topic is too far up the hierarchy.
+     # And should be handled by the retained LWT
      mqttc.publish("/status/" + socket.getfqdn(), "Offline")
      mqttc.disconnect()
      logging.info("Exiting on signal %d", signum)
@@ -73,37 +177,17 @@ def connect():
         connect()
 
     #define the callbacks
-    mqttc.on_message = on_message
     mqttc.on_connect = on_connect
     mqttc.on_disconnect = on_disconnect
+    mqttc.on_publish = on_publish
+    mqttc.on_subscribe = on_subscribe
+    mqttc.on_unsubscribe = on_unsubscribe
+    mqttc.on_message = on_message
+    if DEBUG:
+        mqttc.on_log = on_log
 
-    logging.debug("Subscribing to %s", MQTT_TOPIC)
-    mqttc.subscribe(MQTT_TOPIC, 2)
-
-def on_connect(mosq, obj, result_code):
-     """
-     Handle connections (or failures) to the broker.
-     """
-     ## FIXME - needs fleshing out http://mosquitto.org/documentation/python/
-     if result_code == 0:
-        logging.info("Connected to broker")
-        mqttc.publish("/status/" + socket.getfqdn(), "Online")
-     else:
-        logging.warning("Something went wrong")
-        cleanup()
-
-def on_disconnect(mosq, obj, result_code):
-     """
-     Handle disconnections from the broker
-     """
-     if result_code == 0:
-        logging.info("Clean disconnection")
-     else:
-        logging.info("Unexpected disconnection! Reconnecting in 5 seconds")
-        logging.debug("Result code: %s", result_code)
-        time.sleep(5)
-        connect()
-        main_loop()
+    #logging.debug("Subscribing to %s", MQTT_TOPIC)
+    #mqttc.subscribe(MQTT_TOPIC, 2)
 
 class KeyMap:
     """
@@ -114,32 +198,17 @@ class KeyMap:
         reader = csv.reader(inputfile)
         mapdict = dict((rows[0],rows[1]) for rows in reader)
 
-
-def on_message(mosq, obj, msg):
-    """
-    What to do once we receive a message
-    """
-    logging.debug("Received: " + msg.topic)
-    if msg.topic in KeyMap.mapdict:
-        logging.info("Sending %s %s to Zabbix key %s", msg.topic, msg.payload, KeyMap.mapdict[msg.topic])
-	## Zabbix can also accept text and character data... should we sanitize input or just accept it as is?
-        send_to_zabbix([Metric(KEYHOST, KeyMap.mapdict[msg.topic], msg.payload)], ZBXSERVER, ZBXPORT)
-    else:
-        # Received something with a /raw/ topic, but it didn't match. We don't really care about them
-        logging.debug("Unknown: %s", msg.topic)
-
-
-def main_loop():
-    """
-    The main loop in which we stay connected to the broker
-    """
-    while mqttc.loop() == 0:
-	logging.debug("Looping")
-    
 # Use the signal module to handle signals
 signal.signal(signal.SIGTERM, cleanup)
 signal.signal(signal.SIGINT, cleanup)
 
-# Connect to the broker and enter the main loop
+# Connect to the broker
 connect()
-main_loop()
+
+# Try to loop_forever until interrupted
+try:
+    mqttc.loop_forever()
+except KeyboardInterrupt:
+    print "Interrupted."
+    sys.exit(0)
+
