@@ -14,6 +14,7 @@ import csv
 
 import mosquitto
 import ConfigParser
+import setproctitle
 
 from datetime import datetime, timedelta
 
@@ -37,6 +38,7 @@ ZBXPORT = config.getint("global", "zabbix_port")
 
 APPNAME = "mqtt-zabbix"
 PRESENCETOPIC = "clients/" + socket.getfqdn() + "/" + APPNAME + "/state"
+setproctitle.setproctitle(APPNAME)
 client_id = APPNAME + "_%d" % os.getpid()
 mqttc = mosquitto.Mosquitto(client_id)
 
