@@ -179,7 +179,8 @@ def process_message(msg):
         # should we sanitize input or just accept it as is?
         send_to_zabbix([Metric(KEYHOST,
                         KeyMap.mapdict[msg.topic],
-                        msg.payload)],
+                        msg.payload,
+                        time.strftime("%s"))],
                         ZBXSERVER,
                         ZBXPORT)
     else:
