@@ -12,9 +12,8 @@ import time
 import sys
 import csv
 
-import mosquitto
+import paho.mqtt.client as mqtt
 import ConfigParser
-import setproctitle
 
 from datetime import datetime, timedelta
 
@@ -38,9 +37,8 @@ ZBXPORT = config.getint("global", "zabbix_port")
 
 APPNAME = "mqtt-zabbix"
 PRESENCETOPIC = "clients/" + socket.getfqdn() + "/" + APPNAME + "/state"
-setproctitle.setproctitle(APPNAME)
 client_id = APPNAME + "_%d" % os.getpid()
-mqttc = mosquitto.Mosquitto(client_id)
+mqttc = mqtt.Client(client_id="client_id")
 
 LOGFORMAT = "%(asctime)-15s %(message)s"
 
@@ -171,14 +169,23 @@ def process_message(msg):
     """
     logging.debug("Processing : " + msg.topic)
     if msg.topic in KeyMap.mapdict:
-        logging.info("Sending %s %s to Zabbix key %s",
+        if msg.payload == "ON":
+	    msg.payload = 1
+        if msg.payload == "OFF":
+            msg.payload = 0
+        zbxKey = KeyMap.mapdict[msg.topic];
+        (zbxKey,zbxHost) =zbxKey.split("::")
+  	if zbxHost == "": 
+	    zbxHost = KEYHOST	
+        logging.info("Sending %s %s to Zabbix to host %s key %s",
                       msg.topic,
                       msg.payload,
-                      KeyMap.mapdict[msg.topic])
+		      zbxHost,
+                      zbxKey)
         # Zabbix can also accept text and character data...
         # should we sanitize input or just accept it as is?
-        send_to_zabbix([Metric(KEYHOST,
-                        KeyMap.mapdict[msg.topic],
+        send_to_zabbix([Metric(zbxHost,
+                        zbxKey,
                         msg.payload,
                         time.strftime("%s"))],
                         ZBXSERVER,
@@ -212,7 +219,7 @@ def connect():
     logging.debug("Connecting to %s:%s", MQTT_HOST, MQTT_PORT)
     # Set the Last Will and Testament (LWT) *before* connecting
     mqttc.will_set(PRESENCETOPIC, "0", qos=0, retain=True)
-    result = mqttc.connect(MQTT_HOST, MQTT_PORT, 60, True)
+    result = mqttc.connect(MQTT_HOST, MQTT_PORT, 60)
     if result != 0:
         logging.info("Connection failed with error code %s. Retrying", result)
         time.sleep(10)
