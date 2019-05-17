@@ -20,7 +20,7 @@ sudo python setup.py install
 # Install MQTT Zabbix
 ```
 mkdir /etc/mqtt-zabbix/
-git clone git://github.com/kylegordon/mqtt-zabbix.git /usr/local/mqtt-zabbix/
+git clone git://github.com/lfsousa/mqtt-zabbix.git /usr/local/mqtt-zabbix/
 cp /usr/local/mqtt-zabbix/mqtt-zabbix.cfg.example /etc/mqtt-zabbix/mqtt-zabbix.cfg
 cp /usr/local/mqtt-zabbix/mqtt-zabbix.init /etc/init.d/mqtt-zabbix
 update-rc.d mqtt-zabbix defaults
