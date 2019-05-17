@@ -79,7 +79,7 @@ def on_unsubscribe(mosq, obj, mid):
     logging.debug("Unsubscribe with mid " + str(mid) + " received.")
 
 
-def on_connect(mosq, obj, result_code):
+def on_connect(self, mosq, obj, result_code):
     """
     Handle connections (or failures) to the broker.
     This is called after the client has received a CONNACK message
@@ -173,7 +173,7 @@ def process_message(msg):
 	    msg.payload = 1
         if msg.payload == "OFF":
             msg.payload = 0
-        zbxKey = KeyMap.mapdict[msg.topic];
+        zbxKey = KeyMap.mapdict[msg.topic]
         (zbxKey,zbxHost) =zbxKey.split("::")
   	if zbxHost == "": 
 	    zbxHost = KEYHOST	
